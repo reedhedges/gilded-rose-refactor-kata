@@ -2,7 +2,7 @@
 
 #include "Item.hh"
 #include "util.hh"
-
+#include <climits>
 
 // Wrapper around given (unchangable) Item class, use virtual inheritance to implement different update behaviors.
 // Uses virtual inheritance, update calls may be a bit slower.
@@ -17,7 +17,7 @@ private:
 protected:
     // Subclasses use these to modify item.
     // We could add more abstraction here related to the required behavior of the updates here 
-    // if desired.  (E.g. separate functions to increase quality by standard and accelerated amounts, etc.)
+    // if desired.  (E.g. separate functions to increase quality by standard and accelerated amounts, test sellIn for "past sell by date" etc.)
 
     void increment_quality(int amount)
     {
@@ -34,87 +34,113 @@ protected:
       util::decrement_clamp(m_item.sellIn, 1, INT_MIN);
     }
 
+    int get_quality()
+    {
+      return m_item.quality;
+    }
+
+    int get_sellIn()
+    {
+      return m_item.sellIn;
+    }
+
+    void set_quality(int value)
+    {
+      m_item.quality = value;
+    }
+
 
 public:
     explicit UpdatableItem(Item& item) noexcept : m_item(item) {}
 
-    UpdatableItem(const UpdatableItem&) = delete;
+    UpdatableItem(const UpdatableItem&) = default;
     UpdatableItem(UpdatableItem&&) noexcept = default;
-    UpdatableItem& operator=(const UpdatableItem&) = delete;
+    UpdatableItem& operator=(const UpdatableItem&) = default;
     UpdatableItem& operator=(UpdatableItem&&) = default;
 
     // Subclasses should override this to update a type of item:
     virtual void update() = 0;
 
-
+    virtual ~UpdatableItem() = default;
 };
 
 
 // Subclasses for item types:
 
-class TimeLimitedUpdatableItem : private virtual UpdatableItem 
+
+class TimeLimitedUpdatableItem : public virtual UpdatableItem 
 {
 public:
+    explicit TimeLimitedUpdatableItem(Item& item) : UpdatableItem(item) {}
+
     virtual void update() override 
     { 
-      if(item.sellIn <= 0) {
-          item.quality = 0;
-      } else if(item.sellIn <= 5) {
-          decrement_quality(item, 3);
-      } else if(item.sellIn <= 10) {
-          decrement_quality(item, 2);
+      if (get_sellIn() <= 0) {
+          set_quality(0);
+      } else if (get_sellIn() <= 5) {
+          decrement_quality(3);
+      } else if (get_sellIn() <= 10) {
+          decrement_quality(2);
       } else {
-          decrement_quality(item, 1);
+          decrement_quality(1);
       }
-      decrement_sellIn(item);
+      decrement_sellIn();
     }
 };
 
-class AgesWellUpdatableItem : private virtual UpdatableItem 
+class AgesWellUpdatableItem : public virtual UpdatableItem 
 {
 public:
+    explicit AgesWellUpdatableItem(Item& item) : UpdatableItem(item) {}
+
     virtual void update() override 
     { 
-      increment_quality(item, 1);
-      decrement_sellIn(item);
-      // TODO check original implementation's tests to see if the above is correct (does quality increase by two if it's past sellIn?)
+      increment_quality(1);
+      decrement_sellIn();
+      // TODO check original implementation to see if the above is correct (does quality increase by two if it's past sellIn?)
     }
 };
 
-class NeverDegradesUpdatableItem : private virtual UpdatableItem 
+class NeverDegradesUpdatableItem : public virtual UpdatableItem 
 {
 public:
+    explicit NeverDegradesUpdatableItem(Item& item) : UpdatableItem(item) {}
+
     virtual void update() override 
     { 
-      decrement_sellIn(item);
+      decrement_sellIn();
     }
 };
 
-class DegradesFastUpdatableItem : private virtual UpdatableItem 
+class DegradesFastUpdatableItem : public virtual UpdatableItem 
 {
 public:
+    explicit DegradesFastUpdatableItem(Item& item) : UpdatableItem(item) {}
+
     virtual void update() override 
     { 
-      if(item.sellIn <= 0) {
-        decrement_quality(item, 4);
+      if (get_sellIn() <= 0) {
+        decrement_quality(4);
       } else {
-        decrement_quality(item, 2);
+        decrement_quality(2);
       }
-      decrement_sellIn(item);
+      decrement_sellIn();
     }
 };
 
-class NormalUpdatableItem : private virtual UpdatableItem 
+class NormalUpdatableItem : public virtual UpdatableItem 
 {
 public:
+    explicit NormalUpdatableItem(Item& item) : UpdatableItem(item) {}
+
     virtual void update() override 
     { 
-      if(item.sellIn <= 0) {
-        decrement_quality(item, 2);
+      if (get_sellIn() <= 0) {
+        decrement_quality(2);
       } else {
-        decrement_quality(item, 1);
+        decrement_quality(1);
       }
-      decrement_sellIn(item);
+      decrement_sellIn();
     }
 };
 
