@@ -6,7 +6,10 @@
 // (If we wanted to, we could define a wrapper object around the given Item objects.) 
 
 #include "Item.hh"
+#include "ItemTypes.hh"
 #include "util.hh"
+
+#include <climits>
 
 void Item_increment_quality(Item& item, int amount)
 {
@@ -25,7 +28,8 @@ void Item_decrement_sellIn(Item& item)
 
 
 
-void updateNormalItem(Item& item) {
+void updateNormalItem(Item& item) 
+{
     if(item.sellIn <= 0) {
         Item_decrement_quality(item, 2);
     } else {
@@ -34,17 +38,20 @@ void updateNormalItem(Item& item) {
     Item_decrement_sellIn(item);
 }
 
-void updateAgesWellItem(Item& item) {
+void updateAgesWellItem(Item& item) 
+{
     Item_increment_quality(item, 1);
     Item_decrement_sellIn(item);
     // TODO check original implementation's tests to see if the above is correct (does quality increase by two if it's past sellIn?)
 }
 
-void updateNeverDegradesItem(Item& item) {
+void updateNeverDegradesItem(Item& item) 
+{
     Item_decrement_sellIn(item);
 }
 
-void updateTimeLimitedItem(Item& item) {
+void updateTimeLimitedItem(Item& item) 
+{
     if(item.sellIn <= 0) {
         item.quality = 0;
     } else if(item.sellIn <= 5) {
@@ -57,7 +64,8 @@ void updateTimeLimitedItem(Item& item) {
     Item_decrement_sellIn(item);
 }
 
-void updateDegradesFastItem(Item& item) {
+void updateDegradesFastItem(Item& item) 
+{
     if(item.sellIn <= 0) {
         Item_decrement_quality(item, 4);
     } else {

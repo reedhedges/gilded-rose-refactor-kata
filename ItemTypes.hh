@@ -15,6 +15,8 @@ enum ItemType {
 
 constexpr ItemType itemTypeFromName(std::string_view name)
 {
+    // TODO: Instead of checking each string here, we could also keep a table
+    // matching these string patterns to ItemType values.
     if (name.starts_with("Backstage pass"))
         return TimeLimited;
     else if (name.starts_with("Aged"))

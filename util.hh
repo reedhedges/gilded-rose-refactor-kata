@@ -4,6 +4,8 @@
 #include <stdckdint.h>
 #endif
 
+namespace util {
+
 void decrement_clamp(int& value, int amount, int min_value)
 {
     if(value == min_value)
@@ -52,4 +54,5 @@ void increment_clamp(int& value, int amount, int max_value)
 #endif
 }
 
+}
 
