@@ -2,7 +2,6 @@
 #include <cassert>
 #include <cstdio>
 
-// Gilded Rose Kata in C++, six ways.
 
 #define TESTONEF 1
 #define TESTONEFOPT 1
