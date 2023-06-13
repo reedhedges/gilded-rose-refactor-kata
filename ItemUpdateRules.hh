@@ -3,7 +3,9 @@
 
 // Functions implementing the different update rules for each type,
 // and some utilities for updating values in the Item class since we can't add accessors:
-// (If we wanted to, we could define a wrapper object around the given Item objects.) 
+// (Alternatively, we could define a wrapper object around the given Item objects. The
+// object oriented refactorings (gilded_wrapper_class.cc and gilded_virtual_classes.cc could
+// then derive from or delegate to that, perhaps.) 
 
 #include "Item.hh"
 #include "ItemTypes.hh"
