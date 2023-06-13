@@ -12,148 +12,75 @@
 #define TESTIU2
 
 
+#include "Item.hh"
 
 
+// The different update rules for each type,
+// and some utilities for updating values in the Item class since we can't add accessors:
+// (If we wanted to, we could define a wrapper object around the given Item objects.) 
 
-// Given type interface, cannot change:
+#include "util.hh"
 
-#include <string>
-struct Item {
-    std::string name;
-    int sellIn = 30;
-    int quality = 50;
-
-};
-
-
-
-// We add the concept of a type or category:
-
-#include <string_view>
-
-enum ItemType {
-    Normal,
-    AgesWell,           // e.g. "Aged Brie". Note sellIn not used.
-    NeverDegrades,      // e.g. Legendary "Sulfuras"
-    TimeLimited,        // e.g. "Backstage passes"
-    DegradesFast        // e.g. "Conjured"
-};
-
-constexpr ItemType itemTypeFromName(std::string_view name)
+void Item_increment_quality(Item& item, int amount)
 {
-    if (name.starts_with("Backstage pass"))
-        return TimeLimited;
-    else if (name.starts_with("Aged"))
-        return AgesWell;
-    else if (name.starts_with("Sulfuras"))
-        return NeverDegrades;
-    else if (name.starts_with("Conjured"))
-        return DegradesFast;
-    else   
-        return Normal;
+  increment_clamp(item.quality, amount, 50);
+}
+
+void Item_decrement_quality(Item& item, int amount)
+{
+  decrement_clamp(item.quality, amount, 0);
+}
+
+void Item_decrement_sellIn(Item& item)
+{
+  decrement_clamp(item.sellIn, 1, INT_MIN);
 }
 
 
-
-
-// The different update rules for each type:
-
-#ifdef __STDC_VERSION_STDCKDINT_H__
-#include <stdckdint.h>
-#endif
-
-void decrement_clamp(int& value, int amount, int min_value)
-{
-    if(value == min_value)
-        return;
-    int temp;
-#ifdef __STDC_VERSION_STDCKDINT_H__
-    if(ckd_sub(temp, value, amount))
-        if(temp < min_value)
-            value = min_value;
-        else
-            value = temp;
-    else    
-        value = min_value;
-#else
-    temp = value - amount;
-    if(temp > value)
-        value = min_value;
-    else if(temp < min_value)
-        value = min_value;
-    else
-        value = temp;
-#endif
-}
-
-void increment_clamp(int& value, int amount, int max_value)
-{
-    if(value == max_value)
-        return;
-    int temp;
-#ifdef __STDC_VERSION_STDCKDINT_H__
-    if(ckd_add(temp, value, amount))
-        if(temp > max_value)
-            value = max_value;
-        else
-            value = temp;
-    else    
-        value = max_value;
-#else
-    temp = value + amount;
-    if(temp < value)
-        value = max_value;
-    else if(temp > max_value)
-        value = max_value;
-    else
-        value = temp;
-#endif
-}
 
 void updateNormalItem(Item& item) {
-    if(item.sellIn == 0) {
-        decrement_clamp(item.quality, 2, 0);
+    if(item.sellIn <= 0) {
+        Item_decrement_quality(item, 2);
     } else {
-        decrement_clamp(item.quality, 1, 0);
-        item.quality -= 1;
-        --item.sellIn;
+        Item_decrement_quality(item, 1);
     }
+    Item_decrement_sellIn(item);
 }
 
 void updateAgesWellItem(Item& item) {
-    increment_clamp(item.quality, 1, 50);
-    // sellIn is not used
+    Item_increment_quality(item, 1);
+    Item_decrement_sellIn(item);
     // TODO check original implementation's tests to see if the above is correct (does quality increase by two if it's past sellIn?)
 }
 
 void updateNeverDegradesItem(Item& item) {
-    item.sellIn -= 1;
+    Item_decrement_sellIn(item);
 }
 
 void updateTimeLimitedItem(Item& item) {
     if(item.sellIn <= 0) {
         item.quality = 0;
     } else if(item.sellIn <= 5) {
-        decrement_clamp(item.quality, 3, 0);
-        item.quality -= 3;
+        Item_decrement_quality(item, 3);
     } else if(item.sellIn <= 10) {
-        decrement_clamp(item.quality, 2, 0);
+        Item_decrement_quality(item, 2);
     } else {
-        decrement_clamp(item.quality, 1, 0);
+        Item_decrement_quality(item, 1);
     }
-    --item.sellIn;
+    Item_decrement_sellIn(item);
 }
 
 void updateDegradesFastItem(Item& item) {
     if(item.sellIn <= 0) {
-        decrement_clamp(item.quality, 4, 0);
+        Item_decrement_quality(item, 4);
     } else {
-        decrement_clamp(item.quality, 2, 0);
+        Item_decrement_quality(item, 2);
     }
-    --item.sellIn;
+    Item_decrement_sellIn(item);
 }
 
 
+// Given 'type' do the apropriate update to 'item'.
 void updateItemWithType(Item& item, ItemType type)
 {
   switch(type) 
@@ -207,13 +134,16 @@ void updateItem(Item& item) {
 // -------------
 
 
+// TESTONEFOPT, see main() below.
+
 // ----------
 
 #ifdef TESTGUF
 
 // Upside: simple separated logic, no class machinery. String comparisons to check name are hoisted into 
 // getUpdateFunction() function rather than being in update functions, which actually do no tests at all.
-// Downside: calling via std::function objects is slow (cf virtual classes below), can't be inlined
+// Downsides: calling via std::function objects is slow (cf virtual classes below), can't be inlined,
+// you must supply the item when calling the update function. (See next implementation.)
 // TODO: is there a way to return a generic lamda object instead?
 
 #include <functional>
@@ -247,8 +177,10 @@ UpdateFunctionType getUpdateFunction(const Item& item)
 #ifdef TESTCLOSURE
 
 // Upside: simple separated logic, no class machinery. String comparisons to check name are hoisted into 
-// getUpdateFunction() function rather than being in update functions, which actually do no tests at all.
-// Downside: calling via std::function objects is slow (cf virtual classes below), can't be inlined
+// getUpdateFunction() function rather than being in update functions, which actually do no tests at all,
+// improvement over TESTGUF above because the closure contains the correct item reference.
+// Downsides: calling via std::function objects with captured value as argument is slow.
+// Also closure stores an extra reference (pointer), if memory cost matters in some application.
 // TODO is there a way to return a generic lamda object instead?
 // This one benchmarks the slowest.
 #include <functional>
@@ -277,13 +209,16 @@ std::function<void(void)> getUpdateClosure(Item& item) {
 
 #ifdef TESTIU1
 
-// Downside: it includes a reference dependency on the given item
+// Downsides: it includes a reference dependency on the given item
 // (potential object lifetime issue), but OK for ephemeral use, just to
 // encapsulate the checking logic in an object.
 // Instead, the update() method could just take an Item& argument.
 // makeItemUpdater() could take a const Item& or just a string_view of the name.
-// Downside: Uses virtual inheritance, update calls may be slower and can't be inlined.
-// Upside: Cases are in separate classes, not just separate functions. String comparison is hoisted into makeItemUpdater1(). Forces use of unique_ptr.
+// Or, we could combine this and the quality and sellIn increment/decrement functions above
+// into wrappers around given (not refactorable) Item objects.
+// Uses virtual inheritance, update calls may be a bit slower.
+// Uses a bit of extra storage for the virtual objects and item reference, if memory use is a concern.
+// Upside: Cases are in separate classes, not just separate functions (maybe more modular). String comparison is hoisted into makeItemUpdater1(). Forces use of unique_ptr.
 struct ItemUpdater1 {
     Item& m_item;
     explicit ItemUpdater1(Item& item) noexcept : m_item(item) {}
@@ -334,12 +269,13 @@ std::unique_ptr<ItemUpdater1> makeItemUpdater1(Item& item) {
 // ----------------
 
 #ifdef TESTIU2
-// Downside: includes a reference dependency on the given item
-// (potential object lifetime issue), but OK for ephemeral use, just to
-// encapsulate the checking logic in an object, or if we always use this as a wrapper around the Item object.
-// Or, The Item reference could be removed, and update() could take an Item&
+// Downsides: includes a reference dependency on the given item
+// (potential object lifetime issue), but OK for ephemeral use, or
+// we could merge in item updater function and the item quality and sellIn increment/decrement functions above into this class as more of a full wrapper around the given (not refactorable or extensible) Item object.
+// (Or, The Item reference could be removed, and update() could take an Item&
 // argument, and the ItemUpdater2() constructor could take a const Item&
-// argument, or just a string_view for the name.
+// argument, or just a string_view for the name.)
+// Uses a bit of extra storage for the item reference and type value, if memory use is a concern.
 // Upside: theoretically inlinable by compiler. Hoists string comparison out of update into constructor.
 // This one benchmarks the fastest of all the others.
 
@@ -353,7 +289,7 @@ struct ItemUpdater2 {
       updateItemWithType(m_item, m_type);
     }
 
-    // The updater functions could be member functions if desired.
+    // The updater functions could be member functions if desired, and could incorporate the increment/decrement functions above as well.
 };
 #endif
 
@@ -436,7 +372,7 @@ int main() {
 #endif
 
 #ifdef TESTIU1
-    // using ItemUpdater1 objects (pointers):
+    // using ItemUpdater1 objects (via unique_ptrs):
     {
         Item itemA{"itemA"};
         Item itemB{"itemB"};
