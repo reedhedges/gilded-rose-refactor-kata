@@ -53,15 +53,8 @@ protected:
 public:
     explicit UpdatableItem(Item& item) noexcept : m_item(item) {}
 
-    UpdatableItem(const UpdatableItem&) = default;
-    UpdatableItem(UpdatableItem&&) noexcept = default;
-    UpdatableItem& operator=(const UpdatableItem&) = default;
-    UpdatableItem& operator=(UpdatableItem&&) = default;
-
-    // Subclasses should override this to update a type of item:
+    // Subclasses should override this to update a certain type of item:
     virtual void update() = 0;
-
-    virtual ~UpdatableItem() = default;
 };
 
 
@@ -86,6 +79,7 @@ public:
       }
       decrement_sellIn();
     }
+
 };
 
 class AgesWellUpdatableItem : public virtual UpdatableItem 
@@ -154,7 +148,8 @@ public:
 std::unique_ptr<UpdatableItem> makeUpdatableItem(Item& item) 
 {
     // TODO instead of checking each string pattern here, we could keep a 
-    // static table of patterns and subclass or factory function for each.
+    // static table of patterns and subclass or factory function for each,
+    // or map to ItemType value and swith on that here.
     if (item.name.starts_with("Backstage pass"))
         return std::make_unique<TimeLimitedUpdatableItem>(item);
     else if (item.name.starts_with("Aged"))
